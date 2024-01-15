@@ -1,0 +1,26 @@
+{"type": "SQL Injection", "line_number": 1, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 24, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 50, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 68, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 72, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 75, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 86, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 93, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 104, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 111, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 122, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 131, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 143, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 150, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 155, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 162, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 169, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 191, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 203, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 211, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 215, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 220, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 238, "message": "Potential SQL injection pattern detected"}
+{"type": "SQL Injection", "line_number": 249, "message": "Potential SQL injection pattern detected"}
+Summary of Findings:
+{"SQL Injection": 24}

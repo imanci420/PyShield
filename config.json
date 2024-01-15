@@ -1,0 +1,5 @@
+{
+    "file_types_to_scan": [".py"],
+    "directories_to_ignore": ["tests", "docs", "venv"],
+    "output_format": "json"
+}
