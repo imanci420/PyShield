@@ -4,12 +4,19 @@ import requests
 import tempfile
 import json
 import re
+from code_formatting_checks import perform_code_formatting_check
 from security_checks import (
     detect_sql_injection, detect_xss, detect_sensitive_data_exposure,
     detect_insecure_deserialization, detect_insecure_session_management,
     detect_file_inclusion, detect_command_injection, detect_sensitive_data_encryption,
-    detect_csrf_prevention, detect_secure_password_storage,
+    detect_csrf_prevention, detect_secure_password_storage, detect_debug_info_exposure,
+    detect_hardcoded_credentials, detect_insecure_http_methods ,detect_lack_of_input_validation,
+    detect_open_redirects,
 )
+from solutions import get_solution_for_issue
+
+
+
 
 
 # Load configuration
@@ -31,8 +38,23 @@ def fetch_repo_contents(repo_name):
     else:
         raise Exception(f"Unable to fetch repo contents. Status code: {response.status_code}")
 
-
-
+security_check_functions = {
+    'SQLInjection': detect_sql_injection,
+    'XSS': detect_xss,
+    'SensitiveDataExposure': detect_sensitive_data_exposure,
+    'InsecureDeserialization': detect_insecure_deserialization,
+    'InsecureSessionManagement': detect_insecure_session_management,
+    'FileInclusion': detect_file_inclusion,
+    'CommandInjection': detect_command_injection,
+    'SensitiveDataEncryption': detect_sensitive_data_encryption,
+    'CSRFPrevention': detect_csrf_prevention,
+    'SecurePasswordStorage': detect_secure_password_storage,
+    'HardcodedCredentials': detect_hardcoded_credentials,
+    'OpenRedirects': detect_open_redirects,
+    'DebugInfoExposure': detect_debug_info_exposure,
+    'InsecureHTTPMethods': detect_insecure_http_methods,
+    'LackOfInputValidation': detect_lack_of_input_validation,
+}
 
 def download_file(url):
     """Downloads the file from the provided URL and returns the file path."""
@@ -50,19 +72,41 @@ def read_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
     
-    
-def analyze_file(file_url):
-    file_path = download_file(file_url)
-    code = read_file(file_path)
-    
-    # Perform security checks on the code using your defined functions
-    sql_injection_findings = detect_sql_injection(code)
-    xss_findings = detect_xss(code)
-    # ... (Perform other security checks)
 
-    os.remove(file_path)  # Clean up downloaded file
-    
-    return sql_injection_findings + xss_findings  # Combine findings from multiple checks
+def analyze_file(file_content, check_type, config):
+    if file_content['name'].endswith('.py'):
+        file_path = download_file(file_content['download_url'])
+        code = read_file(file_path)
+        findings = []
+
+        if check_type == 'security':
+            for check_name, check_function in security_check_functions.items():
+                if config['security_checks'][check_name]['enabled']:
+                    function_findings = check_function(code, config)
+                    for finding in function_findings:
+                        # Attach the correct solution based on the issue type
+                        finding['solution'] = get_solution_for_issue(finding['type'])
+                        # Debug print statement
+                        print(f"Debug: Finding: {finding}")
+                        findings.append(finding)
+
+        elif check_type == 'formatting':
+            formatting_issues = perform_code_formatting_check(code)
+            for issue in formatting_issues:
+                # Create a finding dictionary for formatting issues
+                finding = {
+                    'type': issue['type'],
+                    'line_number': issue['line_number'],
+                    'message': issue['message'],
+                    'severity': 'N/A',  # Formatting issues typically don't have a severity
+                    'solution': get_solution_for_issue(issue['type'])
+                }
+                # Debug print statement
+                print(f"Debug: Finding: {finding}")
+                findings.append(finding)
+
+        os.remove(file_path)
+        return findings
 
 
 
@@ -78,77 +122,67 @@ def summarize_findings(findings):
     return summary
  
 
-def analyze_repo(repo_name):
-    """Main function to analyze a GitHub repository."""
+def analyze_repo(repo_name, check_type='security'):
+    # Load configuration for each scan
+    with open('config.json') as config_file:
+        config = json.load(config_file)
+
     contents = fetch_repo_contents(repo_name)
-    all_findings = []  # Initialize all_findings before the loop
+    if not isinstance(contents, list):
+        raise TypeError("Expected a list of repository contents")
 
-    def analyze_file(content):
-        if content['name'].endswith('.py'):
-            print(f"Analyzing file: {content['name']}")
-            file_path = download_file(content['download_url'])
-
-            # Security checks
-            code = read_file(file_path)
-            findings = (
-                detect_sql_injection(code) + 
-                detect_xss(code) +
-                detect_sensitive_data_exposure(code) +
-                detect_insecure_deserialization(code) +
-                detect_insecure_session_management(code) +
-                detect_file_inclusion(code) +
-                detect_command_injection(code) +
-                detect_sensitive_data_encryption(code) +
-                detect_csrf_prevention(code) +
-                detect_secure_password_storage(code)
-            )
-
-            os.remove(file_path)
-            return findings
+    all_findings = []
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        future_to_content = {executor.submit(analyze_file, content): content for content in contents}
-        
+        future_to_content = {
+            executor.submit(analyze_file, content, check_type, config): content
+            for content in contents
+            if content['type'] == 'file' and content['name'].endswith('.py')
+        }
+
         for future in concurrent.futures.as_completed(future_to_content):
-            content = future_to_content[future]
             try:
                 findings = future.result()
-                all_findings.extend(findings)
+                if check_type == 'security':
+                    # Apply security checks filtering
+                    all_findings.extend(findings)
+                elif check_type == 'formatting':
+                    # Directly add formatting findings without filtering
+                    all_findings.extend(findings)
             except Exception as exc:
-                print(f"An error occurred while analyzing {content['name']}: {exc}")
+                print(f"An error occurred: {exc}")
 
     findings_summary = summarize_findings(all_findings)
-
-    if not all_findings:
-        print("No issues found.")
-        return {'findings': [], 'summary': {}}
-
-    # Output findings based on the configured format
-    output = {'findings': all_findings, 'summary': findings_summary}
-    if config['output_format'] == 'json':
-        with open('scan_report.json', 'w') as report_file:
-            json.dump(output, report_file, indent=4)
-
-    print("Analysis complete. Report generated.")
-    return output
+    return {'findings': all_findings, 'summary': findings_summary}
 
 
+def filter_findings(findings, config):
+    if not config:
+        return findings
 
-    # Optional: Write findings to a file
-    with open('scan_report.txt', 'w') as report_file:
-        for finding in all_findings:
-            report_file.write(json.dumps(finding) + '\n')
-        report_file.write("Summary of Findings:\n")
-        report_file.write(json.dumps(findings_summary))
+    filtered_findings = []
+    for finding in findings:
+        check_name = finding['type']  # Assuming 'type' is the check name
+        check_config = config.get('security_checks', {}).get(check_name, {})
+
+        if check_config.get('enabled', True):
+            severity = check_config.get('severity', 'Low')
+            if severity_matches(finding['severity'], severity):
+                filtered_findings.append(finding)
+    
+    return filtered_findings
+
+def severity_matches(finding_severity, config_severity):
+    severity_order = {'Low': 1, 'Medium': 2, 'High': 3}
+    return severity_order.get(finding_severity, 0) >= severity_order.get(config_severity, 0)
 
 
 if __name__ == "__main__":
-    # Prompt the user for the repository to analyze
-    repo_to_analyze = input("Enter the GitHub repository to analyze (e.g., 'octocat/Hello-World'): ").strip()
-    # Debugging: Print the repo name to verify input
+    repo_to_analyze = input("Enter the GitHub repository to analyze: ").strip()
     print(f"Analyzing repository: '{repo_to_analyze}'")
-    analyze_repo(repo_to_analyze)
-
+    results = analyze_repo(repo_to_analyze, check_type='security')
+    # Output results
+    print(json.dumps(results, indent=4))
 
     
 
