@@ -1,22 +1,73 @@
 {
-    "file_types_to_scan": [".py"],
-    "directories_to_ignore": ["tests", "docs", "venv"],
+    "file_types_to_scan": [
+        ".py"
+    ],
+    "directories_to_ignore": [
+        "tests",
+        "docs",
+        "venv"
+    ],
     "output_format": "json",
     "security_checks": {
-        "SQLInjection": {"enabled": true, "severity": "High"},
-        "XSS": {"enabled": true, "severity": "Medium"},
-        "SensitiveDataExposure": {"enabled": true, "severity": "Medium"},
-        "InsecureDeserialization": {"enabled": true, "severity": "High"},
-        "InsecureSessionManagement": {"enabled": true, "severity": "Medium"},
-        "FileInclusion": {"enabled": true, "severity": "High"},
-        "CommandInjection": {"enabled": true, "severity": "High"},
-        "SensitiveDataEncryption": {"enabled": true, "severity": "Low"},
-        "CSRFPrevention": {"enabled": true, "severity": "Medium"},
-        "SecurePasswordStorage": {"enabled": true, "severity": "High"},
-        "HardcodedCredentials": {"enabled": true, "severity": "High"},
-        "OpenRedirects": {"enabled": true, "severity": "Medium"},
-        "DebugInfoExposure": {"enabled": true, "severity": "Low"},
-        "InsecureHTTPMethods": {"enabled": true, "severity": "Medium"},
-        "LackOfInputValidation": {"enabled": true, "severity": "Medium"}
+        "SQLInjection": {
+            "enabled": true,
+            "severity": "High"
+        },
+        "XSS": {
+            "enabled": true,
+            "severity": "Medium"
+        },
+        "SensitiveDataExposure": {
+            "enabled": true,
+            "severity": "Medium"
+        },
+        "InsecureDeserialization": {
+            "enabled": true,
+            "severity": "High"
+        },
+        "InsecureSessionManagement": {
+            "enabled": true,
+            "severity": "Medium"
+        },
+        "FileInclusion": {
+            "enabled": true,
+            "severity": "High"
+        },
+        "CommandInjection": {
+            "enabled": true,
+            "severity": "High"
+        },
+        "SensitiveDataEncryption": {
+            "enabled": true,
+            "severity": "Low"
+        },
+        "CSRFPrevention": {
+            "enabled": true,
+            "severity": "Medium"
+        },
+        "SecurePasswordStorage": {
+            "enabled": true,
+            "severity": "High"
+        },
+        "HardcodedCredentials": {
+            "enabled": true,
+            "severity": "High"
+        },
+        "OpenRedirects": {
+            "enabled": true,
+            "severity": "Medium"
+        },
+        "DebugInfoExposure": {
+            "enabled": true,
+            "severity": "Low"
+        },
+        "InsecureHTTPMethods": {
+            "enabled": true,
+            "severity": "Medium"
+        },
+        "LackOfInputValidation": {
+            "enabled": true,
+            "severity": "Medium"
+        }
     }
 }

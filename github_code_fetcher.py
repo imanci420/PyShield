@@ -3,8 +3,10 @@ import os
 import requests
 import tempfile
 import json
+import logging
 import re
 from code_formatting_checks import perform_code_formatting_check
+from code_quality_checks import perform_code_quality_check
 from security_checks import (
     detect_sql_injection, detect_xss, detect_sensitive_data_exposure,
     detect_insecure_deserialization, detect_insecure_session_management,
@@ -14,14 +16,23 @@ from security_checks import (
     detect_open_redirects,
 )
 from solutions import get_solution_for_issue
+from refactoring import get_refactoring_suggestion
 
 
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-# Load configuration
-with open('config.json') as config_file:
-    config = json.load(config_file)
+try:
+    with open('config.json') as config_file:
+        config = json.load(config_file)
+except FileNotFoundError as e:
+    logging.error(f"Configuration file not found: {e}")
+    exit(1)
+except json.JSONDecodeError as e:
+    logging.error(f"Error parsing the configuration file: {e}")
+    exit(1)
+
 
 # Environment variable for GitHub token 
 github_token = os.getenv('GITHUB_TOKEN')
@@ -36,7 +47,8 @@ def fetch_repo_contents(repo_name):
         # Filter out only files based on configuration and ignore directories or submodules
         return [content for content in contents if content['type'] == 'file' and content['name'].endswith(tuple(config['file_types_to_scan'])) and not any(dir in content['path'] for dir in config['directories_to_ignore'])]
     else:
-        raise Exception(f"Unable to fetch repo contents. Status code: {response.status_code}")
+        logging.error(f"Unable to fetch repo contents. Status code: {response.status_code}")
+        return []
 
 security_check_functions = {
     'SQLInjection': detect_sql_injection,
@@ -58,19 +70,25 @@ security_check_functions = {
 
 def download_file(url):
     """Downloads the file from the provided URL and returns the file path."""
-    local_filename = url.split('/')[-1]
-
-    with requests.get(url, stream=True) as r:
-        with open(local_filename, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-
-    return local_filename
+    try:
+        local_filename = url.split('/')[-1]
+        with requests.get(url, stream=True) as r:
+            with open(local_filename, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        return local_filename
+    except Exception as e:
+        logging.error(f"Error downloading file: {e}")
+        return None
 
 def read_file(file_path):
     """Reads the content of a file and returns it as a string."""
-    with open(file_path, 'r', encoding='utf-8') as file:
-        return file.read()
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return file.read()
+    except Exception as e:
+        logging.error(f"Error reading file: {e}")
+        return ""
     
 
 def analyze_file(file_content, check_type, config):
@@ -84,30 +102,41 @@ def analyze_file(file_content, check_type, config):
                 if config['security_checks'][check_name]['enabled']:
                     function_findings = check_function(code, config)
                     for finding in function_findings:
-                        # Attach the correct solution based on the issue type
                         finding['solution'] = get_solution_for_issue(finding['type'])
-                        # Debug print statement
-                        print(f"Debug: Finding: {finding}")
+                        finding['refactoring'] = get_refactoring_suggestion(finding['type'])
+                        print(f"Debug: Finding with Refactoring: {finding}")  # Debug print
                         findings.append(finding)
 
         elif check_type == 'formatting':
             formatting_issues = perform_code_formatting_check(code)
             for issue in formatting_issues:
-                # Create a finding dictionary for formatting issues
                 finding = {
                     'type': issue['type'],
                     'line_number': issue['line_number'],
                     'message': issue['message'],
-                    'severity': 'N/A',  # Formatting issues typically don't have a severity
-                    'solution': get_solution_for_issue(issue['type'])
+                    'severity': 'N/A',
+                    'solution': get_solution_for_issue(issue['type']),
+                    'refactoring': get_refactoring_suggestion(issue['type'])
                 }
-                # Debug print statement
-                print(f"Debug: Finding: {finding}")
+                print(f"Debug: Finding: {finding}")  # Debug print
+                findings.append(finding)
+
+        elif check_type == 'quality':  # New condition for code quality checks
+            quality_issues = perform_code_quality_check(code)
+            for issue in quality_issues:
+                finding = {
+                    'type': issue['type'],
+                    'line_number': issue['line_number'],
+                    'message': issue['message'],
+                    'severity': 'N/A',
+                    'solution': get_solution_for_issue(issue['type']),
+                    'refactoring': get_refactoring_suggestion(issue['type'])
+                }
+                print(f"Debug: Finding: {finding}")  # Debug print
                 findings.append(finding)
 
         os.remove(file_path)
         return findings
-
 
 
 def summarize_findings(findings):
@@ -143,11 +172,7 @@ def analyze_repo(repo_name, check_type='security'):
         for future in concurrent.futures.as_completed(future_to_content):
             try:
                 findings = future.result()
-                if check_type == 'security':
-                    # Apply security checks filtering
-                    all_findings.extend(findings)
-                elif check_type == 'formatting':
-                    # Directly add formatting findings without filtering
+                if check_type in ['security', 'formatting', 'quality']:  # Include quality checks
                     all_findings.extend(findings)
             except Exception as exc:
                 print(f"An error occurred: {exc}")
@@ -178,11 +203,11 @@ def severity_matches(finding_severity, config_severity):
 
 
 if __name__ == "__main__":
-    repo_to_analyze = input("Enter the GitHub repository to analyze: ").strip()
-    print(f"Analyzing repository: '{repo_to_analyze}'")
-    results = analyze_repo(repo_to_analyze, check_type='security')
-    # Output results
-    print(json.dumps(results, indent=4))
-
-    
-
+    try:
+        repo_to_analyze = input("Enter the GitHub repository to analyze: ").strip()
+        logging.info(f"Analyzing repository: '{repo_to_analyze}'")
+        results = analyze_repo(repo_to_analyze, check_type='security')
+        # Output results
+        print(json.dumps(results, indent=4))
+    except Exception as e:
+        logging.error(f"An error occurred during analysis: {e}")

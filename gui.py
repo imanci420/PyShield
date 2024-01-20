@@ -1,7 +1,8 @@
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, filedialog
 import json
 from github_code_fetcher import analyze_repo
+
 
 # Global variables for findings and summary
 root = None
@@ -10,30 +11,46 @@ findings_tree = None
 summary_text = None
 all_findings = []
 table_headings = ["Line", "Severity", "Type", "Message"]
+is_dark_theme = True
 
 # Theme Configuration Functions
-def configure_dark_theme(style):
-    style.theme_use('clam')
-    style.configure('TFrame', background='#333333')
-    style.configure('TLabel', background='#333333', foreground='white', font=('Helvetica', 12))
-    style.configure('TEntry', background='#1e1e1e', foreground='white', fieldbackground='#1e1e1e', font=('Helvetica', 12))
-    style.configure('TButton', background='#4e4e4e', foreground='white', borderwidth=1, font=('Helvetica', 12))
-    style.map('TButton', background=[('active', '#5e5e5e'), ('pressed', '#5e5e5e')])
+def configure_theme(style, is_dark):
+    # Define a set of colors for dark and light themes
+    colors = {
+        'dark': {
+            'frame_bg': '#333333',
+            'widget_bg': '#1e1e1e',
+            'widget_fg': 'white',
+            'button_bg': '#5e5e5e',
+            'button_fg': 'white',
+            'button_active': '#4e4e4e',
+            'text_bg': '#1e1e1e',
+            'text_fg': 'white',
+        },
+        'light': {
+            'frame_bg': 'white',
+            'widget_bg': 'white',
+            'widget_fg': 'black',
+            'button_bg': 'lightgray',
+            'button_fg': 'black',
+            'button_active': 'gray',
+            'text_bg': 'white',
+            'text_fg': 'black',
+        }
+    }
+    theme_colors = colors['dark'] if is_dark else colors['light']
 
-    # Apply dark mode to findings_tree and summary_text
-    style.configure('Treeview', background='#1e1e1e', foreground='white', fieldbackground='#1e1e1e', font=('Helvetica', 12))
-    style.configure('Treeview.Heading', background='#333333', foreground='white', font=('Helvetica', 12))
-    style.configure('TScrolledText', background='#1e1e1e', foreground='white', insertbackground='white', font=('Helvetica', 12))
+    style.theme_use('alt')
+    style.configure('TFrame', background=theme_colors['frame_bg'], borderwidth=2, relief="flat")
+    style.configure('TLabel', background=theme_colors['frame_bg'], foreground=theme_colors['widget_fg'], font=('Helvetica', 12), padding=3)
+    style.configure('TEntry', background=theme_colors['widget_bg'], foreground=theme_colors['widget_fg'], fieldbackground=theme_colors['widget_bg'], font=('Helvetica', 12), borderwidth=2, relief="flat")
+    style.configure('TButton', background=theme_colors['button_bg'], foreground=theme_colors['button_fg'], borderwidth=2, font=('Helvetica', 12), relief="raised", padding=5)
+    style.map('TButton', background=[('active', theme_colors['button_active']), ('pressed', '!focus', theme_colors['button_active'])])
+    style.configure('Treeview', background=theme_colors['text_bg'], foreground=theme_colors['text_fg'], fieldbackground=theme_colors['text_bg'], font=('Helvetica', 12), relief="flat", borderwidth=2, padding=3)
+    style.configure('Treeview.Heading', background=theme_colors['frame_bg'], foreground=theme_colors['widget_fg'], font=('Helvetica', 12), relief="flat", borderwidth=2, padding=3)
+    style.configure('TScrolledText', background=theme_colors['text_bg'], foreground=theme_colors['text_fg'], insertbackground=theme_colors['widget_fg'], font=('Helvetica', 12), borderwidth=2, relief="flat", padding=3)
+    theme_colors = colors['dark'] if is_dark else colors['light']
 
-
-
-def configure_light_theme(style):
-    style.theme_use('default')
-    style.configure('TFrame', background='white')
-    style.configure('TLabel', background='white', foreground='black', font=('Helvetica', 12))
-    style.configure('TEntry', background='white', foreground='black', fieldbackground='white', font=('Helvetica', 12))
-    style.configure('TButton', background='lightgray', foreground='black', borderwidth=1, font=('Helvetica', 12))
-    style.map('TButton', background=[('active', 'gray'), ('pressed', 'gray')])
 
 def clear_widgets():
     global findings_tree
@@ -45,6 +62,7 @@ def clear_widgets():
         summary_text.delete(1.0, tk.END)
 
 def handle_scan(repo, check_type):
+
     clear_widgets()
     findings_data = analyze_repo(repo, check_type)
     
@@ -52,22 +70,20 @@ def handle_scan(repo, check_type):
         global all_findings
         all_findings = findings_data['findings']
         for finding in all_findings:
-            # Extract data from finding
             line_number = finding.get('line_number')
             severity = finding.get('severity', 'N/A')
             issue_type = finding.get('type')
             message = finding.get('message')
-            solution = finding.get('solution', 'No specific solution available.')  # Provide a default message
+            solution = finding.get('solution', 'No specific solution available.')
+            refactoring = finding.get('refactoring', 'No specific refactoring suggestion available.')  # Include refactoring info
+            print(f"Debug: Inserting into tree: Line {line_number}, Type {issue_type}, Refactoring: {refactoring}")
 
-            # Debug print before inserting into the treeview
-            print(f"Debug: Inserting into tree: {finding}")  # Debug print
-
-            # Insert into the treeview
-            findings_tree.insert("", "end", values=(line_number, severity, issue_type, message, solution))
+            findings_tree.insert("", "end", values=(line_number, severity, issue_type, message, solution, refactoring))
     else:
-        findings_tree.insert("", "end", values=("No issues found.", "", "", "", ""))
+        findings_tree.insert("", "end", values=("No issues found.", "", "", "", "", ""))
 
     display_summary(findings_data['summary'], all_findings)
+
 
 
 def display_summary(findings_summary, all_findings):
@@ -83,6 +99,24 @@ def save_config(config):
     with open('config.json', 'w') as config_file:
         json.dump(config, config_file, indent=4)
 
+def save_summary_and_findings():
+    """
+    Saves the summary and findings to a file.
+    """
+    global summary_text, all_findings
+    summary = summary_text.get("1.0", tk.END)
+    findings = all_findings
+
+    filename = filedialog.asksaveasfilename(defaultextension=".txt",
+                                            filetypes=[("Text files", "*.txt")])
+    if filename:
+        with open(filename, "w") as file:
+            file.write("Summary:\n")
+            file.write(summary)
+            file.write("\nFindings:\n")
+            for finding in findings:
+                file.write(json.dumps(finding) + "\n")        
+
 def open_settings_window():
     settings_window = tk.Toplevel(root)
     settings_window.title("Settings")
@@ -93,7 +127,7 @@ def open_settings_window():
     header_label = ttk.Label(settings_window, text="Settings", font=("TkDefaultFont", 16))
     header_label.pack(pady=(10, 5))
 
-    description_label = ttk.Label(settings_window, text="Adjust the severity and enable/disable specific checks.", background='#f0f0f0')
+    description_label = ttk.Label(settings_window, text="Adjust the severity and enable/disable specific checks.")
     description_label.pack(fill=tk.X, padx=10)
 
     # Frame for settings
@@ -161,33 +195,71 @@ def treeview_sort_column(tv, col, reverse):
     # Reverse sort next time
     tv.heading(col, command=lambda _col=col: treeview_sort_column(tv, _col, not reverse))   
 
-def show_selected_solution():
+def show_troubleshooting():
     selected_item = findings_tree.selection()
     if selected_item:
         item = findings_tree.item(selected_item)
-        print(f"Debug: Selected item values: {item['values']}")  # Debug print
-        print("Selected item values:", item['values'])  # Debugging statement
-        if len(item['values']) >= 5:  # Check if the solution is present
-            solution = item['values'][4]  # Solution is the 5th element
-            messagebox.showinfo("Solution", f"Solution: {solution}")
-        else:
-            messagebox.showwarning("No Solution", "No solution available for this issue.")
+        issue_type = item['values'][2]  # Assuming the issue type is the 3rd element
+
+        # Create a new window for troubleshooting
+        troubleshooting_window = tk.Toplevel(root)
+        troubleshooting_window.title(f"Troubleshooting - {issue_type}")
+        troubleshooting_window.resizable(False, False)
+
+        # Output field
+        output_text = scrolledtext.ScrolledText(troubleshooting_window, wrap=tk.WORD, height=10, width=50)
+        output_text.pack(padx=10, pady=10)
+
+        # Button to show the solution
+        def show_solution():
+            solution = item['values'][4]  # Assuming solution is the 5th element
+            output_text.delete(1.0, tk.END)  # Clear existing text
+            output_text.insert(tk.END, f"Solution:\n{solution}\n\n")
+
+        # Button to show the refactoring suggestion
+        def show_refactoring():
+            refactoring = item['values'][5]  # Assuming refactoring is the 6th element
+            output_text.delete(1.0, tk.END)  # Clear existing text
+            output_text.insert(tk.END, f"Refactoring Suggestion:\n{refactoring}")
+
+        solution_button = ttk.Button(troubleshooting_window, text="Show Solution", command=show_solution)
+        solution_button.pack(side=tk.LEFT, padx=10, pady=10)
+
+        refactoring_button = ttk.Button(troubleshooting_window, text="Show Refactoring", command=show_refactoring)
+        refactoring_button.pack(side=tk.RIGHT, padx=10, pady=10)
     else:
-        messagebox.showwarning("No Selection", "Please select an issue to view the solution.")
+        messagebox.showwarning("No Selection", "Please select an issue to view details.")
+       
+        
 
 
 
 # GUI Creation Function
 def create_gui():
-    global root, repo_entry, findings_tree, summary_text
+    global root, repo_entry, findings_tree, summary_text, is_dark_theme
 
     root = tk.Tk()
     root.title("PyShield")
+    root.geometry("1440x700")
+    root.resizable(True, True)
 
     style = ttk.Style()
     is_dark_theme = True
-    configure_dark_theme(style)
-    root.configure(background='#333333')
+    configure_theme(style, is_dark_theme)
+
+    # Toggle Theme Function
+    def toggle_theme():
+        global is_dark_theme
+        is_dark_theme = not is_dark_theme
+        configure_theme(style, is_dark_theme)
+        # Update the root background and summary_text for the chosen theme
+        root_bg_color = '#333333' if is_dark_theme else 'white'
+        root.configure(background=root_bg_color)
+        text_bg_color = '#1e1e1e' if is_dark_theme else 'white'
+        text_fg_color = 'white' if is_dark_theme else 'black'
+        summary_text.config(background=text_bg_color, foreground=text_fg_color, insertbackground=text_fg_color)
+
+    root.configure(relief="flat")
 
     main_frame = ttk.Frame(root, padding="10")
     main_frame.pack(fill=tk.BOTH, expand=True)
@@ -202,20 +274,6 @@ def create_gui():
     ttk.Label(input_frame, text="GitHub Repository:").pack(side=tk.LEFT)
     repo_entry = ttk.Entry(input_frame, width=50)
     repo_entry.pack(side=tk.LEFT, padx=10)
-
-    def toggle_theme():
-        nonlocal is_dark_theme
-        is_dark_theme = not is_dark_theme
-        if is_dark_theme:
-            configure_dark_theme(style)
-            root.configure(background='#333333')
-            # Update summary_text for dark mode
-            summary_text.config(background='#1e1e1e', foreground='white', insertbackground='white')
-        else:
-            configure_light_theme(style)
-            root.configure(background='white')
-            # Update summary_text for light mode
-            summary_text.config(background='white', foreground='black', insertbackground='black')
 
     theme_button = ttk.Button(top_frame, text="Toggle Theme", command=toggle_theme)
     theme_button.pack(side=tk.RIGHT, padx=10)
@@ -232,14 +290,29 @@ def create_gui():
     output_frame = ttk.Frame(main_frame, padding="10")
     output_frame.pack(fill=tk.BOTH, expand=True)
 
+    # Summary Frame
     summary_frame = ttk.LabelFrame(output_frame, text="Summary", padding="10")
     summary_frame.pack(side=tk.LEFT, fill=tk.Y, expand=False)
 
-    summary_text_frame = ttk.Frame(summary_frame)
-    summary_text_frame.pack(fill=tk.BOTH, expand=True)
-
-    summary_text = scrolledtext.ScrolledText(summary_text_frame, width=30, height=10, background='#1e1e1e', foreground='white', insertbackground='white', font=('Helvetica', 12))
+    summary_text = scrolledtext.ScrolledText(summary_frame, width=35,  background='#1e1e1e', foreground='white', insertbackground='white', font=('Helvetica', 12))
     summary_text.pack(fill=tk.BOTH, expand=True)
+
+    # Button Frame below Summary Text
+    button_frame = ttk.Frame(summary_frame)
+    button_frame.pack(fill=tk.X)
+
+    # Save Summary Button
+    save_summary_button = ttk.Button(button_frame, text="Save Summary", command=save_summary_and_findings)
+    save_summary_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
+
+    # Troubleshooting Button
+    issue_details_button = ttk.Button(button_frame, text="Troubleshooting", command=show_troubleshooting)
+    issue_details_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
+
+    # Quality Button
+    quality_check_button = ttk.Button(input_frame, text="Check Code Quality", 
+    command=lambda: handle_scan(repo_entry.get(), 'quality'))
+    quality_check_button.pack(side=tk.LEFT, padx=10)
 
     # Findings frame
     findings_frame = ttk.LabelFrame(output_frame, text="Findings", padding="10")
@@ -278,12 +351,11 @@ def create_gui():
 
     findings_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    show_solution_button = ttk.Button(findings_frame, text="Show Solution", command=show_selected_solution)
-    show_solution_button.pack(pady=5)
 
     root.mainloop()
 
     
 
 if __name__ == "__main__":
-    create_gui()
+    create_gui() 
+

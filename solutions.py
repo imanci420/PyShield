@@ -1,5 +1,3 @@
-# issue_solutions.py
-
 def get_solution_for_issue(issue_type):
     solutions = {
         # Security issues solutions
@@ -235,7 +233,24 @@ def get_solution_for_issue(issue_type):
         'Missing spaces around operator': "Add spaces around operators for readability.",
         'Multiple statements on a single line': "Place each statement on a separate line.",
         'Missing space before inline comment': "Add a space before inline comments.",
-        'Missing space after \'#\' in comment': "Add a space after '#' in comments."
+        'Missing space after \'#\' in comment': "Add a space after '#' in comments.",
+
+          # Code Quality Issues
+        'High Complexity': 
+        (
+            "Reduce complexity by breaking down complex functions, "
+            "using helper functions, and avoiding deep nesting."
+        ),
+        'Global Variable Usage':
+        (
+            "Avoid global variables. Consider passing variables as parameters, "
+            "or encapsulating them within a class."
+        ),
+        'Duplicate Code': 
+        (
+            "Refactor duplicate code into a single function or method. "
+            "Use this function/method wherever the duplicate code is found."
+        )
 
         
     }
