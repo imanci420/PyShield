@@ -206,8 +206,19 @@ if __name__ == "__main__":
     try:
         repo_to_analyze = input("Enter the GitHub repository to analyze: ").strip()
         logging.info(f"Analyzing repository: '{repo_to_analyze}'")
-        results = analyze_repo(repo_to_analyze, check_type='security')
-        # Output results
-        print(json.dumps(results, indent=4))
+
+        # Check if the repository exists before proceeding
+        api_url = f'https://api.github.com/repos/{repo_to_analyze}'
+        headers = {'Authorization': f'token {github_token}'}
+        response = requests.get(api_url, headers=headers)
+
+        if response.status_code == 404:
+            print(f"Repository '{repo_to_analyze}' not found on GitHub.")
+        elif response.status_code == 200:
+            results = analyze_repo(repo_to_analyze, check_type='security')
+            # Output results
+            print(json.dumps(results, indent=4))
+        else:
+            print(f"An unexpected error occurred while checking the repository: {response.status_code}")
     except Exception as e:
         logging.error(f"An error occurred during analysis: {e}")

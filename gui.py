@@ -2,6 +2,10 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 import json
 from github_code_fetcher import analyze_repo
+from tkinter import messagebox
+import re
+import requests
+
 
 
 # Global variables for findings and summary
@@ -27,8 +31,8 @@ def configure_theme(style, is_dark):
             'text_bg': '#1e1e1e',
             'text_fg': 'white',
         },
-        'light': {
-            'frame_bg': 'white',
+  'light': {
+            'frame_bg': '#f0f0f0',          # Slightly off-white
             'widget_bg': 'white',
             'widget_fg': 'black',
             'button_bg': 'lightgray',
@@ -62,27 +66,40 @@ def clear_widgets():
         summary_text.delete(1.0, tk.END)
 
 def handle_scan(repo, check_type):
-
     clear_widgets()
-    findings_data = analyze_repo(repo, check_type)
-    
-    if findings_data['findings']:
-        global all_findings
-        all_findings = findings_data['findings']
-        for finding in all_findings:
-            line_number = finding.get('line_number')
-            severity = finding.get('severity', 'N/A')
-            issue_type = finding.get('type')
-            message = finding.get('message')
-            solution = finding.get('solution', 'No specific solution available.')
-            refactoring = finding.get('refactoring', 'No specific refactoring suggestion available.')  # Include refactoring info
-            print(f"Debug: Inserting into tree: Line {line_number}, Type {issue_type}, Refactoring: {refactoring}")
 
-            findings_tree.insert("", "end", values=(line_number, severity, issue_type, message, solution, refactoring))
-    else:
-        findings_tree.insert("", "end", values=("No issues found.", "", "", "", "", ""))
+    # Check if the repository name is valid
+    if not re.match(r'^[A-Za-z0-9-]+/[A-Za-z0-9-]+$', repo):
+        messagebox.showerror("Invalid Repository Name", "Please enter a valid GitHub repository name (e.g., owner/repo).")
+        return
 
-    display_summary(findings_data['summary'], all_findings)
+    try:
+        findings_data = analyze_repo(repo, check_type)
+        
+        if 'error' in findings_data:
+            # Show the error message received from the API
+            display_summary.insert("ERROR - Unable to fetch repo contents. Status code: 404")
+        else:
+            global all_findings
+            all_findings = findings_data['findings']
+            for finding in all_findings:
+                line_number = finding.get('line_number')
+                severity = finding.get('severity', 'N/A')
+                issue_type = finding.get('type')
+                message = finding.get('message')
+                solution = finding.get('solution', 'No specific solution available.')
+                refactoring = finding.get('refactoring', 'No specific refactoring suggestion available.')  # Include refactoring info
+                print(f"Debug: Inserting into tree: Line {line_number}, Type {issue_type}, Refactoring: {refactoring}")
+
+                findings_tree.insert("", "end", values=(line_number, severity, issue_type, message, solution, refactoring))
+        
+        # Display summary even if no findings are found
+        display_summary(findings_data['summary'], all_findings)
+    except requests.exceptions.HTTPError as e:
+        # Show the exact error message received from the API
+        messagebox.showerror("Error", str(e))
+
+
 
 
 
